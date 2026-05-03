@@ -6,6 +6,7 @@ import {
   Flame,
   Gauge,
   Goal,
+  Lightbulb,
   RotateCcw,
   Star,
   Zap,
@@ -15,6 +16,7 @@ import "./styles.css";
 type Step = "intro" | "reaction" | "formula" | "graph" | "success" | "crash";
 type FormulaSlot = "v" | "t";
 type Token = { id: FormulaSlot; label: string; value: string };
+type FeedbackTone = "info" | "hint" | "wrong" | "right";
 
 type PhysicsData = {
   speedKmh: number;
@@ -321,16 +323,20 @@ function drawCat(ctx: CanvasRenderingContext2D, x: number, y: number, angry: boo
 
 function IntroPanel({ onStart }: { onStart: () => void }) {
   return (
-    <Panel title="Level 1: De Noodstop" icon={<Bike />}>
+    <Panel title="Overhoring: De Noodstop" icon={<Bike />}>
       <div className="space-y-4">
         <p className="text-slate-300">
-          Een fietser rijdt met <b className="text-white">18 km/h</b>. Plots
-          steekt er een kat over. Meet je reactietijd, bereken de reactieafstand
-          en teken daarna de remfase in het v,t-diagram.
+          Je wordt stap voor stap overhoord over stopafstand. Bij een fout
+          antwoord krijg je eerst een hint, daarna uitleg waarmee je het opnieuw
+          kunt proberen.
         </p>
+        <QuizPrompt
+          question="Scenario"
+          body="Een fietser rijdt 18 km/h. Plots steekt er een kat over. Jij moet uitleggen en berekenen of de fietser op tijd stopt."
+        />
         <FormulaLine label="Formules" value="sreactie = v x t   |   sstop = sreactie + srem" />
         <button className="primary-button w-full" onClick={onStart}>
-          Start noodstop
+          Start overhoring
         </button>
       </div>
     </Panel>
@@ -341,23 +347,68 @@ function ReactionStep({
   catVisible,
   onBrake,
   armed,
+  onReady,
 }: {
   catVisible: boolean;
   onBrake: () => void;
   armed: boolean;
+  onReady: () => void;
 }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const correct = selected === "distance";
+
+  useEffect(() => {
+    if (correct) onReady();
+  }, [correct, onReady]);
+
   return (
-    <Panel title="Stap 1: Reactietijd" icon={<Gauge />}>
+    <Panel title="Vraag 1: Reactietijd" icon={<Gauge />}>
       <div className="space-y-5">
-        <p className="text-slate-300">
-          Wacht tot de kat verschijnt en druk dan zo snel mogelijk op de rem.
-        </p>
+        <QuizPrompt
+          question="Wat gebeurt er tijdens je reactietijd?"
+          body="Kies eerst het juiste begrip. Daarna meet je jouw reactietijd met de remknop."
+        />
+        <div className="grid gap-2">
+          <AnswerButton
+            active={selected === "brake"}
+            correct={selected === "brake" ? false : undefined}
+            onClick={() => setSelected("brake")}
+          >
+            De fietser staat al stil.
+          </AnswerButton>
+          <AnswerButton
+            active={selected === "distance"}
+            correct={selected === "distance" ? true : undefined}
+            onClick={() => setSelected("distance")}
+          >
+            De fietser rijdt nog door met dezelfde snelheid.
+          </AnswerButton>
+          <AnswerButton
+            active={selected === "graph"}
+            correct={selected === "graph" ? false : undefined}
+            onClick={() => setSelected("graph")}
+          >
+            De snelheid daalt al naar 0 m/s.
+          </AnswerButton>
+        </div>
+        {selected && !correct && (
+          <FeedbackBox tone="wrong" title="Nog niet">
+            Tijdens reactietijd is er nog geen remkracht. De fiets beweegt dus
+            nog met dezelfde snelheid door. Daarom reken je met s = v x t.
+          </FeedbackBox>
+        )}
+        {correct && (
+          <FeedbackBox tone="right" title="Klopt">
+            Nu mag je meten. Wacht tot de kat verschijnt en druk dan zo snel
+            mogelijk op REM.
+          </FeedbackBox>
+        )}
         <div className="rounded-lg border border-white/10 bg-slate-950/70 p-4">
           <div className="mb-2 text-sm font-bold uppercase text-slate-400">
             Status
           </div>
           <div className="text-2xl font-black text-white">
-            {catVisible ? "Kat op de weg!" : "Blijf fietsen..."}
+            {!correct ? "Beantwoord eerst de begripvraag" : catVisible ? "Kat op de weg!" : "Blijf fietsen..."}
           </div>
         </div>
         <button
@@ -366,7 +417,7 @@ function ReactionStep({
               ? "bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,.45)] hover:bg-red-400"
               : "bg-slate-800 text-slate-500"
           }`}
-          disabled={!armed}
+          disabled={!armed || !correct}
           onClick={onBrake}
         >
           REM!
@@ -385,7 +436,12 @@ function FormulaStep({
 }) {
   const [slots, setSlots] = useState<Partial<Record<FormulaSlot, Token>>>({});
   const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [attempts, setAttempts] = useState(0);
+  const [feedback, setFeedback] = useState<{
+    tone: FeedbackTone;
+    title: string;
+    body: string;
+  } | null>(null);
   const expected = round(physics.speedMs * (physics.reactionTime || 0), 2);
 
   const dropToken = (slot: FormulaSlot, tokenId: string) => {
@@ -399,16 +455,36 @@ function FormulaStep({
     const formulaOk = slots.v?.id === "v" && slots.t?.id === "t";
     const answerOk = Math.abs(numeric - expected) <= 0.08;
     if (formulaOk && answerOk) {
-      setFeedback("Goed. De fietser remt nog niet tijdens deze meters.");
+      setFeedback({
+        tone: "right",
+        title: "Goed gerekend",
+        body: "De fietser remt nog niet tijdens deze meters. Daarom hoort deze afstand bij het horizontale stuk in het v,t-diagram.",
+      });
       onCorrect(expected);
+    } else if (!formulaOk) {
+      setAttempts((current) => current + 1);
+      setFeedback({
+        tone: "wrong",
+        title: "De formule is nog niet compleet",
+        body: "Hint: reactieafstand gaat over afstand bij constante snelheid. Je hebt snelheid v en reactietijd t nodig: s = v x t.",
+      });
     } else {
-      setFeedback("Nog niet. Gebruik snelheid x reactietijd en rond op twee decimalen.");
+      setAttempts((current) => current + 1);
+      setFeedback({
+        tone: "wrong",
+        title: "Rekenstap klopt nog niet",
+        body: `Hint: vul jouw gemeten tijd in. Dus ${physics.speedMs} x ${physics.reactionTime?.toFixed(2)}. Let op: 18 km/h is al omgerekend naar 5 m/s.`,
+      });
     }
   };
 
   return (
-    <Panel title="Stap 2: Reactieafstand" icon={<Goal />}>
+    <Panel title="Vraag 2: Reactieafstand" icon={<Goal />}>
       <div className="space-y-4">
+        <QuizPrompt
+          question="Bereken hoeveel meter de fietser doorrijdt voordat hij remt."
+          body="Sleep eerst de juiste grootheden in de formule en typ daarna de uitkomst in meter."
+        />
         <FormulaLine
           label="Gegeven"
           value={`v = ${physics.speedMs} m/s, t = ${physics.reactionTime?.toFixed(2)} s`}
@@ -443,9 +519,18 @@ function FormulaStep({
             placeholder="bijv. 3,50"
           />
         </label>
-        {feedback && <p className="text-sm font-bold text-cyan-100">{feedback}</p>}
+        {feedback && (
+          <FeedbackBox tone={feedback.tone} title={feedback.title}>
+            {feedback.body}
+            {attempts >= 2 && feedback.tone === "wrong" && (
+              <span className="mt-2 block text-white">
+                Extra hint: jouw uitkomst moet ongeveer {expected} meter zijn.
+              </span>
+            )}
+          </FeedbackBox>
+        )}
         <button className="primary-button w-full" onClick={check}>
-          Controleer
+          Check antwoord
         </button>
       </div>
     </Panel>
@@ -478,17 +563,70 @@ function GraphStep({
   onFinish: (brakeTime: number) => void;
 }) {
   const [brakeTime, setBrakeTime] = useState(1.6);
+  const [graphAnswer, setGraphAnswer] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [feedback, setFeedback] = useState<{
+    tone: FeedbackTone;
+    title: string;
+    body: string;
+  } | null>(null);
   const brakeDistance = round((physics.speedMs * brakeTime) / 2, 2);
   const total = round((physics.reactionDistance || 0) + brakeDistance, 2);
   const margin = round(physics.catDistance - total, 2);
+  const graphCorrect = graphAnswer === "triangle";
+
+  const checkStop = () => {
+    if (!graphCorrect) {
+      setAttempts((current) => current + 1);
+      setFeedback({
+        tone: "wrong",
+        title: "Eerst het diagrambegrip",
+        body: "Hint: de remweg is de oppervlakte onder de schuine rem-lijn. Dat vlak heeft de vorm van een driehoek.",
+      });
+      return;
+    }
+
+    if (margin < 0) {
+      setAttempts((current) => current + 1);
+      setFeedback({
+        tone: "hint",
+        title: "De stopafstand is nog te groot",
+        body: `Je komt ${Math.abs(margin)} meter tekort. Maak de remtijd korter: dan wordt de driehoek smaller en dus de remweg kleiner.`,
+      });
+      return;
+    }
+
+    setFeedback({
+      tone: "right",
+      title: "Veilige noodstop",
+      body: "De reactieafstand plus remweg blijft kleiner dan de afstand tot de kat.",
+    });
+    onFinish(brakeTime);
+  };
 
   return (
-    <Panel title="Stap 3: v,t-diagram" icon={<Goal />}>
+    <Panel title="Vraag 3: v,t-diagram" icon={<Goal />}>
       <div className="space-y-4">
-        <p className="text-slate-300">
-          Sleep het rempunt over de tijdas. De driehoek onder de rem-lijn is de
-          remweg.
-        </p>
+        <QuizPrompt
+          question="Welk vlak in het v,t-diagram hoort bij de remweg?"
+          body="Beantwoord de begripvraag en sleep daarna het rempunt tot de stopafstand veilig is."
+        />
+        <div className="grid gap-2">
+          <AnswerButton
+            active={graphAnswer === "rectangle"}
+            correct={graphAnswer === "rectangle" ? false : undefined}
+            onClick={() => setGraphAnswer("rectangle")}
+          >
+            De rechthoek tijdens reactietijd.
+          </AnswerButton>
+          <AnswerButton
+            active={graphAnswer === "triangle"}
+            correct={graphAnswer === "triangle" ? true : undefined}
+            onClick={() => setGraphAnswer("triangle")}
+          >
+            De driehoek onder de schuine rem-lijn.
+          </AnswerButton>
+        </div>
         <VelocityGraph
           reactionTime={physics.reactionTime || 0}
           speed={physics.speedMs}
@@ -504,8 +642,18 @@ function GraphStep({
           label="Stopafstand"
           value={`${physics.reactionDistance} + ${brakeDistance} = ${total} m`}
         />
-        <button className="primary-button w-full" onClick={() => onFinish(brakeTime)}>
-          Test noodstop
+        {feedback && (
+          <FeedbackBox tone={feedback.tone} title={feedback.title}>
+            {feedback.body}
+            {attempts >= 2 && feedback.tone !== "right" && (
+              <span className="mt-2 block text-white">
+                Extra hint: probeer een remtijd rond 1,2 s of lager.
+              </span>
+            )}
+          </FeedbackBox>
+        )}
+        <button className="primary-button w-full" onClick={checkStop}>
+          Check noodstop
         </button>
       </div>
     </Panel>
@@ -598,6 +746,10 @@ function ResultPanel({
             Stopafstand: <b className="text-white">{physics.stopDistance} m</b>.
             Afstand tot de kat: <b className="text-white">{physics.catDistance} m</b>.
           </p>
+          <p className="mt-3 text-sm font-semibold text-slate-200">
+            Uitleg: stopafstand bestaat uit de reactieafstand plus de remweg.
+            In een v,t-diagram lees je die af als de oppervlakte onder de lijn.
+          </p>
         </div>
         <button className="secondary-button w-full" onClick={onRetry}>
           <RotateCcw size={18} /> Opnieuw oefenen
@@ -628,6 +780,78 @@ function Panel({
       </div>
       {children}
     </motion.section>
+  );
+}
+
+function QuizPrompt({ question, body }: { question: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
+      <div className="text-xs font-black uppercase tracking-wide text-cyan-200">
+        Overhoorvraag
+      </div>
+      <div className="mt-1 text-lg font-black text-white">{question}</div>
+      <p className="mt-2 text-sm font-semibold text-slate-300">{body}</p>
+    </div>
+  );
+}
+
+function AnswerButton({
+  active,
+  correct,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  correct?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const stateClass =
+    correct === true
+      ? "border-lime-300/60 bg-lime-300/15 text-lime-50"
+      : correct === false
+        ? "border-red-300/60 bg-red-400/15 text-red-50"
+        : active
+          ? "border-cyan-300/60 bg-cyan-300/15 text-white"
+          : "border-white/10 bg-slate-950/70 text-slate-200 hover:bg-white/10";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-4 py-3 text-left text-sm font-bold transition ${stateClass}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FeedbackBox({
+  tone,
+  title,
+  children,
+}: {
+  tone: FeedbackTone;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const styles = {
+    info: "border-cyan-300/30 bg-cyan-300/10 text-cyan-50",
+    hint: "border-amber-300/35 bg-amber-300/10 text-amber-50",
+    wrong: "border-red-300/35 bg-red-400/10 text-red-50",
+    right: "border-lime-300/35 bg-lime-300/10 text-lime-50",
+  }[tone];
+
+  return (
+    <div className={`rounded-lg border p-4 ${styles}`}>
+      <div className="mb-1 flex items-center gap-2 font-black">
+        <Lightbulb size={17} />
+        {title}
+      </div>
+      <div className="text-sm font-semibold leading-relaxed text-slate-100">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -683,6 +907,7 @@ function App() {
   const [physics, setPhysics] = useState<PhysicsData>(INITIAL_PHYSICS);
   const [catVisible, setCatVisible] = useState(false);
   const [catAppearedAt, setCatAppearedAt] = useState<number | null>(null);
+  const [reactionReady, setReactionReady] = useState(false);
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
   const [confetti, setConfetti] = useState(false);
@@ -690,7 +915,7 @@ function App() {
   const armed = step === "reaction" && catVisible;
 
   useEffect(() => {
-    if (step !== "reaction") return;
+    if (step !== "reaction" || !reactionReady) return;
     setCatVisible(false);
     const delay = 2000 + Math.random() * 2000;
     const timer = window.setTimeout(() => {
@@ -698,7 +923,7 @@ function App() {
       setCatAppearedAt(performance.now());
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [step]);
+  }, [reactionReady, step]);
 
   const reactionText = useMemo(() => {
     if (!physics.reactionTime) return "Nog niet gemeten";
@@ -745,6 +970,7 @@ function App() {
     setPhysics(INITIAL_PHYSICS);
     setCatVisible(false);
     setCatAppearedAt(null);
+    setReactionReady(false);
     setStep("reaction");
   };
 
@@ -780,6 +1006,7 @@ function App() {
                 catVisible={catVisible}
                 armed={armed}
                 onBrake={handleBrake}
+                onReady={() => setReactionReady(true)}
               />
             )}
             {step === "formula" && <FormulaStep key="formula" physics={physics} onCorrect={handleFormulaCorrect} />}

@@ -3,10 +3,12 @@ import ReactDOM from "react-dom/client";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bike,
+  ExternalLink,
   Flame,
   Gauge,
   Goal,
   Lightbulb,
+  Play,
   RotateCcw,
   Star,
   Zap,
@@ -17,6 +19,29 @@ type Step = "intro" | "reaction" | "formula" | "graph" | "success" | "crash";
 type FormulaSlot = "v" | "t";
 type Token = { id: FormulaSlot; label: string; value: string };
 type FeedbackTone = "info" | "hint" | "wrong" | "right";
+type PracticeTask = {
+  video: string;
+  videoUrl: string;
+  videoTitle: string;
+  imageUrl?: string;
+  title: string;
+  skill: string;
+  method: string;
+  prompt: string;
+  hint: string;
+  options: string[];
+  correctOption: number;
+  explanation: string;
+  questions: BattleQuestion[];
+};
+type BattleQuestion = {
+  prompt: string;
+  options: string[];
+  correctOption: number;
+  hint: string;
+  explanation: string;
+};
+type ViewMode = "home" | "lesson";
 
 type PhysicsData = {
   speedKmh: number;
@@ -45,8 +70,447 @@ const INITIAL_PHYSICS: PhysicsData = {
   catDistance: 14,
 };
 
+const PRACTICE_TASKS: PracticeTask[] = [
+  {
+    video: "Video 1",
+    videoUrl: "https://www.youtube.com/watch?v=_iZ6yn-h_as&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Voortstuwende en tegenwerkende wrijvingskracht",
+    title: "Route 1: Arcanine rent",
+    skill: "Teken krachtpijlen.",
+    method: "Mee = voortstuwend. Tegen = tegenwerkend.",
+    prompt: "Arcanine rent door zand tegen storm in. Teken 3 horizontale krachten.",
+    hint: "Spierkracht vooruit. Lucht en zand werken tegen.",
+    options: [
+      "Spierkracht vooruit. Lucht en zand achteruit.",
+      "Alle krachten wijzen vooruit.",
+      "Luchtweerstand wijst vooruit.",
+    ],
+    correctOption: 0,
+    explanation: "Arcanine beweegt vooruit. Tegenkrachten wijzen terug.",
+    questions: [
+      {
+        prompt: "Welke pijl hoort bij spierkracht?",
+        options: ["Vooruit", "Achteruit", "Omlaag"],
+        correctOption: 0,
+        hint: "Arcanine rent vooruit.",
+        explanation: "Spierkracht duwt Arcanine vooruit.",
+      },
+      {
+        prompt: "Welke pijlen werken tegen?",
+        options: ["Lucht en zand", "Spierkracht en lucht", "Alleen spierkracht"],
+        correctOption: 0,
+        hint: "Storm en zand remmen af.",
+        explanation: "Luchtweerstand en zand werken achteruit.",
+      },
+      {
+        prompt: "Hoe teken je tegenkracht?",
+        options: ["Pijl naar links", "Pijl naar rechts", "Geen pijl"],
+        correctOption: 0,
+        hint: "Tegen de beweging in.",
+        explanation: "Tegenkracht teken je terug.",
+      },
+    ],
+  },
+  {
+    video: "Video 2",
+    videoUrl: "https://www.youtube.com/watch?v=-e3Uv_z32UA&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Snelheidsverandering of richting bij nettokracht",
+    title: "Route 2: Team Rocket ballon",
+    skill: "Bereken Fnetto.",
+    method: "Fnetto = Fvooruit - Ftegen.",
+    prompt: "Ballon: 450 N vooruit. Wind: 300 N tegen. Versnelt hij?",
+    hint: "450 - 300 = ?",
+    options: ["Fnetto = 150 N vooruit", "Fnetto = 0 N", "Fnetto = 750 N tegen"],
+    correctOption: 0,
+    explanation: "450 N vooruit is groter dan 300 N tegen. De ballon versnelt.",
+    questions: [
+      {
+        prompt: "Welke pijl is vooruit?",
+        options: ["450 N", "300 N", "Geen pijl"],
+        correctOption: 0,
+        hint: "De motor duwt.",
+        explanation: "De motor levert 450 N vooruit.",
+      },
+      {
+        prompt: "Wat is Fnetto?",
+        options: ["150 N vooruit", "0 N", "750 N"],
+        correctOption: 0,
+        hint: "450 - 300.",
+        explanation: "Fnetto = 150 N vooruit.",
+      },
+      {
+        prompt: "Wat doet de ballon?",
+        options: ["Versnelt", "Blijft gelijk", "Vertraagt"],
+        correctOption: 0,
+        hint: "Vooruit is groter.",
+        explanation: "De nettokracht is vooruit. Dus hij versnelt.",
+      },
+    ],
+  },
+  {
+    video: "Video 3",
+    videoUrl: "https://www.youtube.com/watch?v=vAf0b6LCz9o&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Traagheid, effect van massa op versnelling",
+    title: "Route 3: Pikachu vs Snorlax",
+    skill: "Gebruik traagheid.",
+    method: "Meer massa = meer traagheid.",
+    prompt: "Pikachu en Snorlax rennen 20 km/h. Wie heeft de langste remweg?",
+    hint: "Snorlax heeft veel meer massa.",
+    options: ["Snorlax", "Pikachu", "Allebei even lang"],
+    correctOption: 0,
+    explanation: "Snorlax heeft meer massa. Dus meer traagheid.",
+    questions: [
+      {
+        prompt: "Wie heeft meer massa?",
+        options: ["Snorlax", "Pikachu", "Evenveel"],
+        correctOption: 0,
+        hint: "Kijk naar het grote lijf.",
+        explanation: "Snorlax heeft meer massa.",
+      },
+      {
+        prompt: "Wie heeft meer traagheid?",
+        options: ["Snorlax", "Pikachu", "Evenveel"],
+        correctOption: 0,
+        hint: "Meer massa = meer traagheid.",
+        explanation: "Snorlax is lastiger te stoppen.",
+      },
+      {
+        prompt: "Wie heeft de langste remweg?",
+        options: ["Snorlax", "Pikachu", "Even lang"],
+        correctOption: 0,
+        hint: "Meer traagheid remt lastiger.",
+        explanation: "Snorlax stopt later.",
+      },
+    ],
+  },
+  {
+    video: "Video 4",
+    videoUrl: "https://www.youtube.com/watch?v=Z2MRpyp-ERA&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Kracht, versnelling en massa berekenen",
+    title: "Route 4: Machamp duwt",
+    skill: "Reken kracht uit.",
+    method: "F = m x a.",
+    prompt: "Machamp duwt Aggron. m = 360 kg. a = 2 m/s2. Bereken F.",
+    hint: "360 x 2. Eenheid: N.",
+    options: ["720 N", "180 N", "362 N"],
+    correctOption: 0,
+    explanation: "F = m x a = 360 x 2 = 720 N.",
+    questions: [
+      {
+        prompt: "Welke formule hoort bij de pijl?",
+        options: ["F = m x a", "s = v x t", "W = F x s"],
+        correctOption: 0,
+        hint: "Het gaat om kracht.",
+        explanation: "Voor kracht gebruik je F = m x a.",
+      },
+      {
+        prompt: "Wat vul je in voor m?",
+        options: ["360 kg", "2 m/s2", "720 N"],
+        correctOption: 0,
+        hint: "m betekent massa.",
+        explanation: "De massa van Aggron is 360 kg.",
+      },
+      {
+        prompt: "Hoe groot is F?",
+        options: ["720 N", "180 N", "362 N"],
+        correctOption: 0,
+        hint: "360 x 2.",
+        explanation: "F = 720 N.",
+      },
+    ],
+  },
+  {
+    video: "Video 5",
+    videoUrl: "https://www.youtube.com/watch?v=Sznu6GltB0A&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Arbeid, kracht en afstand berekenen",
+    title: "Route 5: Geodude valt",
+    skill: "Leg eindsnelheid uit.",
+    method: "Fz omlaag. Flucht omhoog.",
+    prompt: "Charizard laat Geodude vallen. Waarom wordt zijn valsnelheid later constant?",
+    hint: "Als Fz = Flucht, dan is Fnetto 0 N.",
+    options: [
+      "Luchtweerstand wordt even groot als zwaartekracht.",
+      "Zwaartekracht verdwijnt.",
+      "Geodude wordt lichter.",
+    ],
+    correctOption: 0,
+    explanation: "Bij gelijke krachten is Fnetto 0 N. De snelheid blijft gelijk.",
+    questions: [
+      {
+        prompt: "Welke pijl wijst omlaag?",
+        options: ["Fz", "Flucht", "Fnetto"],
+        correctOption: 0,
+        hint: "Zwaartekracht trekt omlaag.",
+        explanation: "Fz wijst omlaag.",
+      },
+      {
+        prompt: "Welke pijl wijst omhoog?",
+        options: ["Flucht", "Fz", "Massa"],
+        correctOption: 0,
+        hint: "Lucht duwt tegen de val in.",
+        explanation: "Luchtweerstand wijst omhoog.",
+      },
+      {
+        prompt: "Wanneer is snelheid constant?",
+        options: ["Fz = Flucht", "Fz is groter", "Flucht is weg"],
+        correctOption: 0,
+        hint: "Dan is Fnetto 0 N.",
+        explanation: "Bij Fnetto 0 N blijft de snelheid gelijk.",
+      },
+    ],
+  },
+  {
+    video: "Video 6",
+    videoUrl: "https://www.youtube.com/watch?v=KJvb8ncJRmM&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Bewegingsenergie en zwaarte-energie berekenen",
+    title: "Route 6: Cyclizar remt",
+    skill: "Gebruik stopafstand.",
+    method: "Stopafstand = reactieafstand + remweg.",
+    prompt: "Trainer kijkt op Rotom Phone. Regen op de weg. Psyduck steekt over. Wat wordt groter?",
+    hint: "Telefoon: reactieafstand. Regen: remweg.",
+    options: [
+      "Reactieafstand en remweg",
+      "Alleen snelheid",
+      "Geen van beide",
+    ],
+    correctOption: 0,
+    explanation: "Afleiding maakt reageren trager. Regen maakt remmen slechter.",
+    questions: [
+      {
+        prompt: "Wat maakt reactieafstand groter?",
+        options: ["Rotom Phone", "Regen", "Psyduck"],
+        correctOption: 0,
+        hint: "De trainer kijkt weg.",
+        explanation: "Afleiding maakt reactietijd langer.",
+      },
+      {
+        prompt: "Wat maakt remweg groter?",
+        options: ["Regen", "Telefoon", "Helm"],
+        correctOption: 0,
+        hint: "De weg is glad.",
+        explanation: "Regen geeft minder grip.",
+      },
+      {
+        prompt: "Wat is stopafstand?",
+        options: ["Reactieafstand + remweg", "Alleen remweg", "Alleen snelheid"],
+        correctOption: 0,
+        hint: "Twee stukken samen.",
+        explanation: "Stopafstand = reactieafstand + remweg.",
+      },
+    ],
+  },
+  {
+    video: "Video 7",
+    videoUrl: "https://www.youtube.com/watch?v=WUsi7haBPDU&list=PLugIniei46MeydpDW0IRXsi5eAOVvlAi9",
+    videoTitle: "Veilige verkeerssituatie maken",
+    title: "Arena 7: Pokéball deukt",
+    skill: "Leg veiligheid uit.",
+    method: "Langere remtijd = kleinere kracht.",
+    prompt: "Een Pokéball deukt een beetje in bij een klap. Waarom is dat veiliger?",
+    hint: "Langere remweg. Kleinere kracht.",
+    options: [
+      "De klap duurt langer. De kracht wordt kleiner.",
+      "De snelheid wordt groter.",
+      "De massa verdwijnt.",
+    ],
+    correctOption: 0,
+    explanation: "Langzamer afremmen geeft een kleinere kracht.",
+    questions: [
+      {
+        prompt: "Wat zie je bij de Pokéball?",
+        options: ["Hij deukt in", "Hij versnelt", "Hij wordt zwaarder"],
+        correctOption: 0,
+        hint: "Kijk naar de klap.",
+        explanation: "De bal deukt in bij de botsing.",
+      },
+      {
+        prompt: "Wat wordt langer?",
+        options: ["Remweg", "Massa", "Snelheid"],
+        correctOption: 0,
+        hint: "De klap duurt meer afstand.",
+        explanation: "Indeuken maakt de remweg langer.",
+      },
+      {
+        prompt: "Wat gebeurt met de kracht?",
+        options: ["Kleiner", "Groter", "Verdwijnt"],
+        correctOption: 0,
+        hint: "Langzamer afremmen helpt.",
+        explanation: "Een langere remweg geeft kleinere kracht.",
+      },
+    ],
+  },
+];
+
+const GENERAL_QUESTIONS: Record<string, BattleQuestion[]> = {
+  "Video 1": [
+    {
+      prompt: "Een fietser rijdt met constante snelheid. Wat klopt?",
+      options: ["Krachten zijn in evenwicht", "Alleen spierkracht werkt", "Er werken geen krachten"],
+      correctOption: 0,
+      hint: "Constante snelheid betekent: Fnetto = 0 N.",
+      explanation: "De voortstuwende kracht is even groot als alle tegenkrachten samen.",
+    },
+    {
+      prompt: "Wat laat de punt van een krachtpijl zien?",
+      options: ["Richting", "Massa", "Snelheid"],
+      correctOption: 0,
+      hint: "Kijk waar de pijl naartoe wijst.",
+      explanation: "De punt laat de richting van de kracht zien.",
+    },
+    {
+      prompt: "Welke kracht werkt tegen de beweging in?",
+      options: ["Luchtweerstand", "Motorkracht", "Spierkracht vooruit"],
+      correctOption: 0,
+      hint: "Deze kracht remt af.",
+      explanation: "Luchtweerstand werkt tegen de beweging in.",
+    },
+  ],
+  "Video 2": [
+    {
+      prompt: "Motor: 2500 N. Tegen: 2700 N. Wat gebeurt er?",
+      options: ["Hij vertraagt", "Hij versnelt", "Hij rijdt achteruit"],
+      correctOption: 0,
+      hint: "Tegen is 200 N groter.",
+      explanation: "Fnetto is 200 N tegen de beweging in. Dus hij vertraagt.",
+    },
+    {
+      prompt: "Wanneer is de snelheid constant?",
+      options: ["Fnetto = 0 N", "Fnetto vooruit", "Fnetto achteruit"],
+      correctOption: 0,
+      hint: "De krachten heffen elkaar op.",
+      explanation: "Bij Fnetto = 0 N verandert de snelheid niet.",
+    },
+    {
+      prompt: "Wanneer versnelt iets?",
+      options: ["Kracht vooruit is groter", "Kracht tegen is groter", "Krachten zijn gelijk"],
+      correctOption: 0,
+      hint: "De nettokracht wijst vooruit.",
+      explanation: "Als de kracht vooruit groter is, neemt de snelheid toe.",
+    },
+  ],
+  "Video 3": [
+    {
+      prompt: "Waarom schiet je naar voren bij hard remmen?",
+      options: ["Door traagheid", "Door zwaartekracht", "Door luchtweerstand"],
+      correctOption: 0,
+      hint: "Je lichaam wil doorgaan.",
+      explanation: "Door traagheid wil je lichaam vooruit blijven bewegen.",
+    },
+    {
+      prompt: "Wat geeft meer traagheid?",
+      options: ["Meer massa", "Minder massa", "Meer lucht"],
+      correctOption: 0,
+      hint: "Zware dingen zijn lastiger te stoppen.",
+      explanation: "Hoe groter de massa, hoe groter de traagheid.",
+    },
+    {
+      prompt: "Wat kost meer kracht om te versnellen?",
+      options: ["Een zwaar voorwerp", "Een licht voorwerp", "Een stil voorwerp zonder massa"],
+      correctOption: 0,
+      hint: "Meer massa werkt meer tegen.",
+      explanation: "Een zwaar voorwerp heeft meer traagheid.",
+    },
+  ],
+  "Video 4": [
+    {
+      prompt: "Scooter: m = 150 kg. a = 2 m/s2. Hoe groot is F?",
+      options: ["300 N", "75 N", "152 N"],
+      correctOption: 0,
+      hint: "F = m x a.",
+      explanation: "F = 150 x 2 = 300 N.",
+    },
+    {
+      prompt: "Welke eenheid hoort bij kracht?",
+      options: ["N", "kg", "m/s2"],
+      correctOption: 0,
+      hint: "Kracht meet je in Newton.",
+      explanation: "De eenheid van kracht is Newton: N.",
+    },
+    {
+      prompt: "Welke formule gebruik je voor versnelling?",
+      options: ["a = F / m", "a = F x m", "a = m / F"],
+      correctOption: 0,
+      hint: "Begin met F = m x a.",
+      explanation: "Als je a zoekt, deel je F door m.",
+    },
+  ],
+  "Video 5": [
+    {
+      prompt: "Fz is even groot als Flucht. Wat gebeurt er?",
+      options: ["Constante snelheid", "Steeds sneller", "Stil hangen"],
+      correctOption: 0,
+      hint: "Fnetto = 0 N.",
+      explanation: "Bij gelijke krachten blijft de snelheid gelijk.",
+    },
+    {
+      prompt: "Wat gebeurt met luchtweerstand tijdens vallen?",
+      options: ["Wordt groter", "Blijft nul", "Werkt omlaag"],
+      correctOption: 0,
+      hint: "Meer snelheid geeft meer luchtweerstand.",
+      explanation: "Luchtweerstand wordt groter als de snelheid groter wordt.",
+    },
+    {
+      prompt: "Wat doet een parachute?",
+      options: ["Meer luchtweerstand", "Minder massa", "Meer zwaartekracht"],
+      correctOption: 0,
+      hint: "Een parachute heeft veel oppervlak.",
+      explanation: "Meer oppervlak geeft meer luchtweerstand.",
+    },
+  ],
+  "Video 6": [
+    {
+      prompt: "Moe en natte weg. Wat wordt langer?",
+      options: ["Reactieafstand en remweg", "Alleen reactieafstand", "Alleen remweg"],
+      correctOption: 0,
+      hint: "Moe reageren. Natte weg remmen.",
+      explanation: "Moeheid maakt de reactieafstand langer. Nat wegdek maakt de remweg langer.",
+    },
+    {
+      prompt: "Wat is de formule voor stopafstand?",
+      options: ["Reactieafstand + remweg", "Snelheid x massa", "Kracht x afstand"],
+      correctOption: 0,
+      hint: "Stoppen heeft twee stukken.",
+      explanation: "Stopafstand = reactieafstand + remweg.",
+    },
+    {
+      prompt: "Wat is het horizontale stuk in een v,t-diagram?",
+      options: ["Reactietijd", "Remweg", "Massa"],
+      correctOption: 0,
+      hint: "De snelheid blijft eerst gelijk.",
+      explanation: "Tijdens de reactietijd rem je nog niet.",
+    },
+  ],
+  "Video 7": [
+    {
+      prompt: "Waarom heeft een auto een kreukelzone?",
+      options: ["Kleinere kracht op je lichaam", "Meer snelheid", "Minder grip"],
+      correctOption: 0,
+      hint: "De klap duurt langer.",
+      explanation: "Een langere remweg geeft een kleinere kracht.",
+    },
+    {
+      prompt: "Wat doet een gordel?",
+      options: ["Houdt je tegen", "Maakt de auto sneller", "Maakt je lichter"],
+      correctOption: 0,
+      hint: "Je lichaam wil door bewegen.",
+      explanation: "De gordel houdt je vast en remt je af.",
+    },
+    {
+      prompt: "Welk deel van de auto moet stevig blijven?",
+      options: ["Kooiconstructie", "Kreukelzone", "Bumper alleen"],
+      correctOption: 0,
+      hint: "Dit deel beschermt de inzittenden.",
+      explanation: "De kooiconstructie beschermt de mensen in de auto.",
+    },
+  ],
+};
+
 function round(value: number, digits = 2) {
   return Number(value.toFixed(digits));
+}
+
+function chapterLabel(task: PracticeTask) {
+  return task.video.replace("Video", "Stap");
 }
 
 function Navbar({
@@ -68,29 +532,29 @@ function Navbar({
   }[step];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
+    <header className="sticky top-0 z-20 border-b-4 border-slate-900 bg-red-500 shadow-[0_4px_0_#020617]">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-cyan-400 text-slate-950 shadow-glow">
+          <div className="grid h-10 w-10 place-items-center rounded-full border-4 border-slate-950 bg-white text-slate-950">
             <Zap size={22} strokeWidth={2.8} />
           </div>
           <div>
-            <p className="text-lg font-black tracking-wide text-white">
-              KrachtLab
+            <p className="text-lg font-black tracking-wide text-white drop-shadow">
+              KrachtQuest
             </p>
-            <p className="-mt-1 text-xs font-semibold text-cyan-200">
-              4KGT NaSk1
+            <p className="-mt-1 text-xs font-black text-yellow-200">
+              Trainer 4KGT
             </p>
           </div>
         </div>
 
         <div className="hidden flex-1 items-center gap-3 sm:flex">
           <span className="text-xs font-bold uppercase text-slate-400">
-            Level 1
+            Quest
           </span>
-          <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-800 ring-1 ring-white/10">
+          <div className="h-3 flex-1 overflow-hidden rounded-full border border-slate-950 bg-white/30">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-lime-300 to-amber-300"
+              className="h-full rounded-full bg-gradient-to-r from-yellow-300 via-lime-300 to-cyan-300"
               animate={{ width: `${progress}%` }}
             />
           </div>
@@ -127,12 +591,21 @@ function SimulationCanvas({
   step,
   physics,
   catVisible,
+  taskIndex,
+  task,
 }: {
   step: Step;
   physics: PhysicsData;
   catVisible: boolean;
+  taskIndex: number;
+  task: PracticeTask;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [task.imageUrl]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -195,24 +668,47 @@ function SimulationCanvas({
       ctx.stroke();
       ctx.setLineDash([]);
 
-      drawDistanceMarker(ctx, startX, startX + reactionPx, roadY - 72, "reactieafstand");
-      if (physics.brakeDistance) {
-        drawDistanceMarker(ctx, startX + reactionPx, startX + reactionPx + brakePx, roadY - 50, "remweg");
+      if (taskIndex === 5) {
+        drawDistanceMarker(ctx, startX, startX + reactionPx, roadY - 72, "reactie");
+        if (physics.brakeDistance) {
+          drawDistanceMarker(ctx, startX + reactionPx, startX + reactionPx + brakePx, roadY - 50, "remweg");
+        }
       }
 
-      if (catVisible || step === "formula" || step === "graph" || step === "success" || step === "crash") {
-        drawCat(ctx, catX, roadY + 6, step === "crash");
-      }
-      drawCyclist(ctx, bikeX, roadY + 10, frame, step === "success");
+      drawRouteScene(ctx, {
+        taskIndex,
+        frame,
+        width,
+        height,
+        roadY,
+        x: bikeX,
+        targetX: catX,
+        showTarget: catVisible || step === "formula" || step === "graph" || step === "success" || step === "crash",
+        danger: step === "crash",
+        happy: step === "success",
+      });
 
-      ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
-      ctx.fillRect(18, 18, 210, 74);
-      ctx.fillStyle = "#e0f2fe";
+      const sceneLabel = [
+        "Arcanine vs storm",
+        "Team Rocket ballon",
+        "Pikachu vs Snorlax",
+        "Machamp duwt Aggron",
+        "Geodude valt",
+        "Cyclizar noodstop",
+        "Pokéball botsing",
+      ][taskIndex];
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      roundRect(ctx, 18, 18, 230, 76, 10);
+      ctx.fill();
+      ctx.strokeStyle = "#020617";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = "#020617";
       ctx.font = "700 14px Inter, system-ui";
-      ctx.fillText(`${physics.speedKmh} km/h = ${physics.speedMs} m/s`, 34, 46);
-      ctx.fillStyle = "#bae6fd";
-      ctx.font = "600 12px Inter, system-ui";
-      ctx.fillText(`Kat op ${physics.catDistance} meter`, 34, 70);
+      ctx.fillText(sceneLabel, 34, 45);
+      ctx.font = "700 12px Inter, system-ui";
+      ctx.fillText(taskIndex === 5 ? `${physics.speedKmh} km/h = ${physics.speedMs} m/s` : "Kies de juiste natuurkunde", 34, 70);
 
       frame += 1;
       raf = requestAnimationFrame(render);
@@ -220,13 +716,119 @@ function SimulationCanvas({
 
     render();
     return () => cancelAnimationFrame(raf);
-  }, [catVisible, physics, step]);
+  }, [catVisible, physics, step, taskIndex]);
+
+  if (task.imageUrl && !imageFailed) {
+    return (
+      <div className="relative h-[330px] overflow-hidden rounded-lg border-4 border-slate-900 bg-white shadow-[6px_6px_0_#020617]">
+        <img
+          src={task.imageUrl}
+          alt={task.title}
+          onError={() => setImageFailed(true)}
+          className="h-full w-full object-cover"
+        />
+        <div className="absolute left-4 top-4 rounded-lg border-4 border-slate-900 bg-white/90 px-4 py-3 text-slate-950">
+          <div className="text-sm font-black text-red-600">{chapterLabel(task)}</div>
+          <div className="text-lg font-black">{task.title}</div>
+        </div>
+        <div className="absolute bottom-4 left-4 right-4 grid gap-2 sm:grid-cols-3">
+          <SceneForce label="spierkracht" tone="good" />
+          <SceneForce label="luchtweerstand" tone="bad" />
+          <SceneForce label="wrijving zand" tone="bad" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-cyan-300/20 bg-slate-900 shadow-glow">
+    <div className="overflow-hidden rounded-lg border-4 border-slate-900 bg-white shadow-[6px_6px_0_#020617]">
       <canvas ref={canvasRef} className="h-[330px] w-full" />
     </div>
   );
+}
+
+function SceneForce({ label, tone }: { label: string; tone: "good" | "bad" }) {
+  return (
+    <div
+      className={`rounded-lg border-4 border-slate-900 px-3 py-2 text-center text-sm font-black shadow-[3px_3px_0_#020617] ${
+        tone === "good" ? "bg-lime-200 text-slate-950" : "bg-red-500 text-white"
+      }`}
+    >
+      {tone === "good" ? "→" : "←"} {label}
+    </div>
+  );
+}
+
+function drawRouteScene(
+  ctx: CanvasRenderingContext2D,
+  scene: {
+    taskIndex: number;
+    frame: number;
+    width: number;
+    height: number;
+    roadY: number;
+    x: number;
+    targetX: number;
+    showTarget: boolean;
+    danger: boolean;
+    happy: boolean;
+  },
+) {
+  const { taskIndex, frame, width, height, roadY, x, targetX, showTarget, danger, happy } = scene;
+
+  if (taskIndex === 0) {
+    drawSandStorm(ctx, frame, width, height);
+    drawCreature(ctx, x, roadY + 4, "#f97316", "Arcanine", happy);
+    drawArrow(ctx, x - 80, roadY - 52, x - 15, roadY - 52, "#22c55e", "spier");
+    drawArrow(ctx, x + 120, roadY - 88, x + 58, roadY - 88, "#ef4444", "lucht");
+    drawArrow(ctx, x + 100, roadY - 28, x + 48, roadY - 28, "#ef4444", "zand");
+    return;
+  }
+
+  if (taskIndex === 1) {
+    drawBalloon(ctx, x + 40, roadY - 95, frame);
+    drawArrow(ctx, x - 60, roadY - 95, x + 10, roadY - 95, "#22c55e", "450 N");
+    drawArrow(ctx, x + 170, roadY - 125, x + 105, roadY - 125, "#ef4444", "300 N");
+    drawLabel(ctx, "Fnetto?", x + 35, roadY - 30);
+    return;
+  }
+
+  if (taskIndex === 2) {
+    drawCreature(ctx, x - 20, roadY + 4, "#facc15", "Pikachu", false, 0.85);
+    drawCreature(ctx, x + 160, roadY + 4, "#94a3b8", "Snorlax", false, 1.35);
+    drawLabel(ctx, "6 kg", x - 48, roadY - 72);
+    drawLabel(ctx, "460 kg", x + 125, roadY - 105);
+    drawCliff(ctx, width - 92, roadY);
+    return;
+  }
+
+  if (taskIndex === 3) {
+    drawCreature(ctx, x - 30, roadY + 4, "#60a5fa", "Machamp", false, 1.05);
+    drawCreature(ctx, x + 125, roadY + 4, "#64748b", "Aggron", false, 1.3);
+    drawArrow(ctx, x + 25, roadY - 68, x + 100, roadY - 68, "#22c55e", "F = m x a");
+    drawLabel(ctx, "360 kg", x + 105, roadY - 110);
+    return;
+  }
+
+  if (taskIndex === 4) {
+    drawCreature(ctx, width * 0.24, roadY - 130, "#ef4444", "Charizard", false, 1.05);
+    const fallY = 80 + ((frame * 2) % Math.max(90, height - 150));
+    drawRock(ctx, width * 0.62, fallY, "Geodude");
+    drawArrow(ctx, width * 0.7, fallY - 28, width * 0.7, fallY + 40, "#ef4444", "Fz");
+    drawArrow(ctx, width * 0.54, fallY + 40, width * 0.54, fallY - 28, "#22c55e", "Flucht");
+    return;
+  }
+
+  if (taskIndex === 5) {
+    if (showTarget) drawCreature(ctx, targetX, roadY + 6, "#facc15", "Psyduck", danger, 0.8);
+    drawCreature(ctx, x, roadY + 8, "#22c55e", "Cyclizar", happy, 1.05);
+    drawLabel(ctx, "Rotom Phone", x - 15, roadY - 100);
+    return;
+  }
+
+  drawPokeball(ctx, x + 90, roadY - 25, danger);
+  drawArrow(ctx, x - 40, roadY - 25, x + 40, roadY - 25, "#ef4444", "klap");
+  drawLabel(ctx, "deukt in", x + 65, roadY - 85);
 }
 
 function drawDistanceMarker(
@@ -246,6 +848,175 @@ function drawDistanceMarker(
   ctx.fillStyle = "#67e8f9";
   ctx.font = "700 11px Inter, system-ui";
   ctx.fillText(label, from + 6, y - 7);
+}
+
+function drawLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: number) {
+  ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+  roundRect(ctx, x, y, Math.max(74, text.length * 8), 26, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#020617";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = "#020617";
+  ctx.font = "800 12px Inter, system-ui";
+  ctx.fillText(text, x + 9, y + 17);
+}
+
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  color: string,
+  label: string,
+) {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 14 * Math.cos(angle - 0.5), y2 - 14 * Math.sin(angle - 0.5));
+  ctx.lineTo(x2 - 14 * Math.cos(angle + 0.5), y2 - 14 * Math.sin(angle + 0.5));
+  ctx.closePath();
+  ctx.fill();
+  drawLabel(ctx, label, (x1 + x2) / 2 - 22, y1 - 34);
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+function drawSandStorm(ctx: CanvasRenderingContext2D, frame: number, width: number, height: number) {
+  ctx.strokeStyle = "rgba(250, 204, 21, 0.55)";
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 12; i++) {
+    const y = 42 + i * 19;
+    const x = (frame * 3 + i * 37) % (width + 80) - 80;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 70, y - 12);
+    ctx.stroke();
+  }
+}
+
+function drawCreature(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+  name: string,
+  alert: boolean,
+  scale = 1,
+) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "#020617";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(x + 34 * scale, y - 28 * scale, 42 * scale, 24 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x + 76 * scale, y - 45 * scale, 20 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = alert ? "#ef4444" : "#020617";
+  ctx.beginPath();
+  ctx.arc(x + 83 * scale, y - 48 * scale, 3.5 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#020617";
+  ctx.lineWidth = 5 * scale;
+  ctx.beginPath();
+  ctx.moveTo(x + 5 * scale, y - 24 * scale);
+  ctx.lineTo(x - 18 * scale, y - 45 * scale);
+  ctx.stroke();
+  drawLabel(ctx, name, x + 6 * scale, y - 96 * scale);
+}
+
+function drawBalloon(ctx: CanvasRenderingContext2D, x: number, y: number, frame: number) {
+  ctx.fillStyle = "#f87171";
+  ctx.strokeStyle = "#020617";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 45, 56, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#facc15";
+  ctx.fillRect(x - 28, y + 62, 56, 30);
+  ctx.strokeRect(x - 28, y + 62, 56, 30);
+  ctx.strokeStyle = "#020617";
+  ctx.beginPath();
+  ctx.moveTo(x - 25, y + 42);
+  ctx.lineTo(x - 24, y + 62);
+  ctx.moveTo(x + 25, y + 42);
+  ctx.lineTo(x + 24, y + 62);
+  ctx.stroke();
+  drawLabel(ctx, "ballon", x - 32, y + 102 + Math.sin(frame * 0.05) * 3);
+}
+
+function drawCliff(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#78350f";
+  ctx.fillRect(x, y - 18, 90, 120);
+  ctx.fillStyle = "#facc15";
+  ctx.fillRect(x, y - 24, 90, 12);
+  drawLabel(ctx, "afgrond", x - 8, y - 62);
+}
+
+function drawRock(ctx: CanvasRenderingContext2D, x: number, y: number, label: string) {
+  ctx.fillStyle = "#94a3b8";
+  ctx.strokeStyle = "#020617";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 27, 24, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  drawLabel(ctx, label, x - 36, y - 58);
+}
+
+function drawPokeball(ctx: CanvasRenderingContext2D, x: number, y: number, dented: boolean) {
+  ctx.strokeStyle = "#020617";
+  ctx.lineWidth = 5;
+  ctx.fillStyle = "#ef4444";
+  ctx.beginPath();
+  ctx.arc(x, y, 45, Math.PI, 0);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = dented ? "#fecaca" : "#ffffff";
+  ctx.beginPath();
+  ctx.arc(x, y, 45, 0, Math.PI);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - 45, y);
+  ctx.lineTo(x + 45, y);
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(x, y, 13, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
 }
 
 function drawCyclist(
@@ -323,21 +1094,128 @@ function drawCat(ctx: CanvasRenderingContext2D, x: number, y: number, angry: boo
 
 function IntroPanel({ onStart }: { onStart: () => void }) {
   return (
-    <Panel title="Overhoring: De Noodstop" icon={<Bike />}>
+    <Panel title="Arena: De Noodstop" icon={<Bike />}>
       <div className="space-y-4">
-        <p className="text-slate-300">
-          Je wordt stap voor stap overhoord over stopafstand. Bij een fout
-          antwoord krijg je eerst een hint, daarna uitleg waarmee je het opnieuw
-          kunt proberen.
+        <p className="font-bold text-slate-700">
+          Win 3 korte battles. Fout? Je krijgt een hint.
         </p>
         <QuizPrompt
-          question="Scenario"
-          body="Een fietser rijdt 18 km/h. Plots steekt er een kat over. Jij moet uitleggen en berekenen of de fietser op tijd stopt."
+          question="Route event"
+          body="Fietser: 18 km/h. Er steekt iets over. Stop op tijd."
         />
         <FormulaLine label="Formules" value="sreactie = v x t   |   sstop = sreactie + srem" />
         <button className="primary-button w-full" onClick={onStart}>
-          Start overhoring
+          Start battle
         </button>
+      </div>
+    </Panel>
+  );
+}
+
+function RouteBattlePanel({
+  task,
+  canGoNext,
+  onNext,
+}: {
+  task: PracticeTask;
+  canGoNext: boolean;
+  onNext: () => void;
+}) {
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [skipped, setSkipped] = useState(false);
+  const questions = useMemo(
+    () => [...task.questions, ...(GENERAL_QUESTIONS[task.video] ?? [])],
+    [task],
+  );
+  const question = questions[questionIndex];
+  const promptTitle =
+    questionIndex < task.questions.length ? "Kijk naar de visual" : "Examen check";
+  const isCorrect = selected === question.correctOption;
+  const hasAnswered = selected !== null || skipped;
+  const isLastQuestion = questionIndex === questions.length - 1;
+
+  const reset = () => {
+    setQuestionIndex(0);
+    setSelected(null);
+    setSkipped(false);
+  };
+
+  const nextQuestion = () => {
+    setQuestionIndex((current) => Math.min(current + 1, questions.length - 1));
+    setSelected(null);
+    setSkipped(false);
+  };
+
+  return (
+    <Panel title={task.title} icon={<Goal />}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between rounded-lg border-4 border-slate-900 bg-red-500 px-4 py-2 text-white">
+          <span className="text-sm font-black">Vraag {questionIndex + 1}</span>
+          <span className="text-sm font-black">{questions.length} totaal</span>
+        </div>
+        <QuizPrompt question={promptTitle} body={question.prompt} />
+        <div className="grid gap-2">
+          {question.options.map((option, index) => (
+            <AnswerButton
+              key={option}
+              active={selected === index}
+              correct={selected === index ? index === question.correctOption : undefined}
+              onClick={() => {
+                setSkipped(false);
+                setSelected(index);
+              }}
+            >
+              {option}
+            </AnswerButton>
+          ))}
+        </div>
+        {selected !== null && !isCorrect && !skipped && (
+          <FeedbackBox tone="wrong" title="Nog niet">
+            {question.hint}
+          </FeedbackBox>
+        )}
+        {isCorrect && !skipped && (
+          <FeedbackBox tone="right" title="Goed">
+            {question.explanation}
+          </FeedbackBox>
+        )}
+        {skipped && (
+          <FeedbackBox tone="info" title="Overgeslagen">
+            {question.explanation}
+          </FeedbackBox>
+        )}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {!hasAnswered && (
+            <button className="secondary-button w-full" onClick={() => setSkipped(true)}>
+              Skip battle
+            </button>
+          )}
+          {hasAnswered && (
+            <button className="secondary-button w-full" onClick={reset}>
+              Opnieuw
+            </button>
+          )}
+          {hasAnswered && !isLastQuestion && (
+            <button className="primary-button w-full" onClick={nextQuestion}>
+              Volgende vraag
+            </button>
+          )}
+          {hasAnswered && isLastQuestion && canGoNext && (
+            <button className="primary-button w-full" onClick={onNext}>
+              Volgende route
+            </button>
+          )}
+        </div>
+        <a
+          href={task.videoUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="secondary-button w-full"
+        >
+          <ExternalLink size={16} />
+          Bekijk stap
+        </a>
       </div>
     </Panel>
   );
@@ -355,18 +1233,20 @@ function ReactionStep({
   onReady: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState(false);
   const correct = selected === "distance";
+  const ready = correct || skipped;
 
   useEffect(() => {
-    if (correct) onReady();
-  }, [correct, onReady]);
+    if (ready) onReady();
+  }, [onReady, ready]);
 
   return (
-    <Panel title="Vraag 1: Reactietijd" icon={<Gauge />}>
+    <Panel title="Battle 1: Reactietijd" icon={<Gauge />}>
       <div className="space-y-5">
         <QuizPrompt
-          question="Wat gebeurt er tijdens je reactietijd?"
-          body="Kies eerst het juiste begrip. Daarna meet je jouw reactietijd met de remknop."
+          question="Wat gebeurt er eerst?"
+          body="Kies. Meet daarna je reactietijd."
         />
         <div className="grid gap-2">
           <AnswerButton
@@ -391,37 +1271,45 @@ function ReactionStep({
             De snelheid daalt al naar 0 m/s.
           </AnswerButton>
         </div>
-        {selected && !correct && (
+        {selected && !correct && !skipped && (
           <FeedbackBox tone="wrong" title="Nog niet">
-            Tijdens reactietijd is er nog geen remkracht. De fiets beweegt dus
-            nog met dezelfde snelheid door. Daarom reken je met s = v x t.
+            Je remt nog niet. De fiets rijdt door. Gebruik: s = v x t.
           </FeedbackBox>
         )}
-        {correct && (
+        {correct && !skipped && (
           <FeedbackBox tone="right" title="Klopt">
-            Nu mag je meten. Wacht tot de kat verschijnt en druk dan zo snel
-            mogelijk op REM.
+            Wacht tot de kat verschijnt. Druk dan op REM.
           </FeedbackBox>
         )}
-        <div className="rounded-lg border border-white/10 bg-slate-950/70 p-4">
+        {skipped && (
+          <FeedbackBox tone="info" title="Vraag overgeslagen">
+            Antwoord: de fietser rijdt nog door. Gebruik: s = v x t.
+          </FeedbackBox>
+        )}
+        <div className="rounded-lg border-4 border-slate-900 bg-white p-4">
           <div className="mb-2 text-sm font-bold uppercase text-slate-400">
             Status
           </div>
-          <div className="text-2xl font-black text-white">
-            {!correct ? "Beantwoord eerst de begripvraag" : catVisible ? "Kat op de weg!" : "Blijf fietsen..."}
+          <div className="text-2xl font-black text-slate-950">
+            {!ready ? "Kies eerst een antwoord" : catVisible ? "Kat op de weg!" : "Blijf fietsen..."}
           </div>
         </div>
         <button
           className={`h-24 w-full rounded-lg text-4xl font-black transition ${
             catVisible
               ? "bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,.45)] hover:bg-red-400"
-              : "bg-slate-800 text-slate-500"
+              : "border-4 border-slate-900 bg-slate-200 text-slate-500"
           }`}
-          disabled={!armed || !correct}
+          disabled={!armed || !ready}
           onClick={onBrake}
         >
           REM!
         </button>
+        {!ready && (
+          <button className="secondary-button w-full" onClick={() => setSkipped(true)}>
+            Skip battle
+          </button>
+        )}
       </div>
     </Panel>
   );
@@ -457,33 +1345,44 @@ function FormulaStep({
     if (formulaOk && answerOk) {
       setFeedback({
         tone: "right",
-        title: "Goed gerekend",
-        body: "De fietser remt nog niet tijdens deze meters. Daarom hoort deze afstand bij het horizontale stuk in het v,t-diagram.",
+        title: "Goed",
+        body: "Dit is de afstand voor het remmen.",
       });
       onCorrect(expected);
     } else if (!formulaOk) {
       setAttempts((current) => current + 1);
       setFeedback({
         tone: "wrong",
-        title: "De formule is nog niet compleet",
-        body: "Hint: reactieafstand gaat over afstand bij constante snelheid. Je hebt snelheid v en reactietijd t nodig: s = v x t.",
+        title: "Kijk naar de formule",
+        body: "Hint: gebruik v en t. Dus: s = v x t.",
       });
     } else {
       setAttempts((current) => current + 1);
       setFeedback({
         tone: "wrong",
-        title: "Rekenstap klopt nog niet",
-        body: `Hint: vul jouw gemeten tijd in. Dus ${physics.speedMs} x ${physics.reactionTime?.toFixed(2)}. Let op: 18 km/h is al omgerekend naar 5 m/s.`,
+        title: "Reken nog eens",
+        body: `Hint: ${physics.speedMs} x ${physics.reactionTime?.toFixed(2)}.`,
       });
     }
   };
 
+  const skipQuestion = () => {
+    setSlots({ v: TOKENS[0], t: TOKENS[1] });
+    setAnswer(String(expected).replace(".", ","));
+    setFeedback({
+      tone: "info",
+      title: "Vraag overgeslagen",
+      body: `Antwoord: ${physics.speedMs} x ${physics.reactionTime?.toFixed(2)} = ${expected} m.`,
+    });
+    window.setTimeout(() => onCorrect(expected), 700);
+  };
+
   return (
-    <Panel title="Vraag 2: Reactieafstand" icon={<Goal />}>
+    <Panel title="Battle 2: Reactieafstand" icon={<Goal />}>
       <div className="space-y-4">
         <QuizPrompt
-          question="Bereken hoeveel meter de fietser doorrijdt voordat hij remt."
-          body="Sleep eerst de juiste grootheden in de formule en typ daarna de uitkomst in meter."
+          question="Hoe ver rolt hij door?"
+          body="Sleep v en t. Typ daarna de afstand."
         />
         <FormulaLine
           label="Gegeven"
@@ -495,27 +1394,27 @@ function FormulaStep({
               key={token.id}
               draggable
               onDragStart={(event) => event.dataTransfer.setData("text/plain", token.id)}
-              className="cursor-grab rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-3 text-center font-black text-cyan-100 active:cursor-grabbing"
+              className="cursor-grab rounded-lg border-4 border-slate-900 bg-yellow-100 p-3 text-center font-black text-slate-950 active:cursor-grabbing"
             >
-              {token.label} <span className="block text-xs font-semibold text-cyan-200">{token.value}</span>
+              {token.label} <span className="block text-xs font-bold text-slate-600">{token.value}</span>
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-2 rounded-lg bg-slate-950/70 p-3 text-xl font-black text-white">
+        <div className="flex items-center gap-2 rounded-lg border-4 border-slate-900 bg-white p-3 text-xl font-black text-slate-950">
           <span>s =</span>
           <DropSlot token={slots.v} onDropToken={(id) => dropToken("v", id)} />
           <span>x</span>
           <DropSlot token={slots.t} onDropToken={(id) => dropToken("t", id)} />
         </div>
         <label className="block">
-          <span className="mb-2 block text-sm font-bold text-slate-300">
+          <span className="mb-2 block text-sm font-black text-slate-700">
             Reactieafstand in meter
           </span>
           <input
             value={answer}
             onChange={(event) => setAnswer(event.target.value)}
             inputMode="decimal"
-            className="w-full rounded-lg border border-white/10 bg-slate-950 px-4 py-3 text-xl font-black text-white outline-none ring-cyan-300/0 transition focus:ring-4"
+            className="w-full rounded-lg border-4 border-slate-900 bg-white px-4 py-3 text-xl font-black text-slate-950 outline-none ring-red-300/0 transition focus:ring-4"
             placeholder="bijv. 3,50"
           />
         </label>
@@ -524,13 +1423,16 @@ function FormulaStep({
             {feedback.body}
             {attempts >= 2 && feedback.tone === "wrong" && (
               <span className="mt-2 block text-white">
-                Extra hint: jouw uitkomst moet ongeveer {expected} meter zijn.
+                Hint: ongeveer {expected} m.
               </span>
             )}
           </FeedbackBox>
         )}
         <button className="primary-button w-full" onClick={check}>
-          Check antwoord
+          Check move
+        </button>
+        <button className="secondary-button w-full" onClick={skipQuestion}>
+          Skip battle
         </button>
       </div>
     </Panel>
@@ -548,7 +1450,7 @@ function DropSlot({
     <div
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => onDropToken(event.dataTransfer.getData("text/plain"))}
-      className="grid h-14 min-w-24 place-items-center rounded-lg border border-dashed border-lime-300/50 bg-lime-300/10 px-4 text-lime-100"
+      className="grid h-14 min-w-24 place-items-center rounded-lg border-4 border-dashed border-slate-900 bg-lime-100 px-4 text-slate-950"
     >
       {token ? token.label : "sleep"}
     </div>
@@ -580,8 +1482,8 @@ function GraphStep({
       setAttempts((current) => current + 1);
       setFeedback({
         tone: "wrong",
-        title: "Eerst het diagrambegrip",
-        body: "Hint: de remweg is de oppervlakte onder de schuine rem-lijn. Dat vlak heeft de vorm van een driehoek.",
+        title: "Kijk naar de grafiek",
+        body: "Hint: de remweg is de driehoek.",
       });
       return;
     }
@@ -590,26 +1492,38 @@ function GraphStep({
       setAttempts((current) => current + 1);
       setFeedback({
         tone: "hint",
-        title: "De stopafstand is nog te groot",
-        body: `Je komt ${Math.abs(margin)} meter tekort. Maak de remtijd korter: dan wordt de driehoek smaller en dus de remweg kleiner.`,
+        title: "Nog te ver",
+        body: `Je komt ${Math.abs(margin)} m tekort. Maak de remtijd korter.`,
       });
       return;
     }
 
     setFeedback({
       tone: "right",
-      title: "Veilige noodstop",
-      body: "De reactieafstand plus remweg blijft kleiner dan de afstand tot de kat.",
+      title: "Veilig",
+      body: "De stopafstand is kort genoeg.",
     });
     onFinish(brakeTime);
   };
 
+  const skipQuestion = () => {
+    const safeBrakeTime = 1.2;
+    setGraphAnswer("triangle");
+    setBrakeTime(safeBrakeTime);
+    setFeedback({
+      tone: "info",
+      title: "Vraag overgeslagen",
+      body: "Antwoord: de remweg is de driehoek. We gebruiken een korte remtijd.",
+    });
+    window.setTimeout(() => onFinish(safeBrakeTime), 800);
+  };
+
   return (
-    <Panel title="Vraag 3: v,t-diagram" icon={<Goal />}>
+    <Panel title="Battle 3: v,t-diagram" icon={<Goal />}>
       <div className="space-y-4">
         <QuizPrompt
-          question="Welk vlak in het v,t-diagram hoort bij de remweg?"
-          body="Beantwoord de begripvraag en sleep daarna het rempunt tot de stopafstand veilig is."
+          question="Waar zie je de remweg?"
+          body="Kies het vlak. Sleep daarna het rempunt."
         />
         <div className="grid gap-2">
           <AnswerButton
@@ -647,13 +1561,16 @@ function GraphStep({
             {feedback.body}
             {attempts >= 2 && feedback.tone !== "right" && (
               <span className="mt-2 block text-white">
-                Extra hint: probeer een remtijd rond 1,2 s of lager.
+                Hint: probeer 1,2 s.
               </span>
             )}
           </FeedbackBox>
         )}
         <button className="primary-button w-full" onClick={checkStop}>
-          Check noodstop
+          Check battle
+        </button>
+        <button className="secondary-button w-full" onClick={skipQuestion}>
+          Skip battle
         </button>
       </div>
     </Panel>
@@ -739,16 +1656,15 @@ function ResultPanel({
     <Panel title={success ? "Kat gered" : "Net niet"} icon={<Star />}>
       <div className="space-y-4">
         <div className={`rounded-lg border p-4 ${success ? "border-lime-300/30 bg-lime-300/10" : "border-red-300/30 bg-red-300/10"}`}>
-          <div className="text-3xl font-black text-white">
+          <div className="text-3xl font-black text-slate-950">
             {success ? "+50 XP" : "Probeer opnieuw"}
           </div>
-          <p className="mt-1 text-slate-300">
-            Stopafstand: <b className="text-white">{physics.stopDistance} m</b>.
-            Afstand tot de kat: <b className="text-white">{physics.catDistance} m</b>.
+          <p className="mt-1 font-bold text-slate-700">
+            Stopafstand: <b className="text-slate-950">{physics.stopDistance} m</b>.
+            Afstand: <b className="text-slate-950">{physics.catDistance} m</b>.
           </p>
           <p className="mt-3 text-sm font-semibold text-slate-200">
-            Uitleg: stopafstand bestaat uit de reactieafstand plus de remweg.
-            In een v,t-diagram lees je die af als de oppervlakte onder de lijn.
+            Uitleg: stopafstand = reactieafstand + remweg.
           </p>
         </div>
         <button className="secondary-button w-full" onClick={onRetry}>
@@ -772,10 +1688,10 @@ function Panel({
     <motion.section
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-white/10 bg-white/[0.06] p-5 shadow-glow"
+      className="rounded-lg border-4 border-slate-900 bg-white p-5 text-slate-950 shadow-[6px_6px_0_#020617]"
     >
-      <div className="mb-4 flex items-center gap-2 text-white">
-        <span className="text-cyan-300">{icon}</span>
+      <div className="mb-4 flex items-center gap-2 text-slate-950">
+        <span className="text-red-500">{icon}</span>
         <h2 className="text-xl font-black">{title}</h2>
       </div>
       {children}
@@ -783,14 +1699,124 @@ function Panel({
   );
 }
 
+function StartScreen({
+  tasks,
+  onSelect,
+  onStartExercise,
+}: {
+  tasks: PracticeTask[];
+  onSelect: (index: number) => void;
+  onStartExercise: () => void;
+}) {
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-5">
+      <section className="space-y-5">
+        <div className="rounded-lg border-4 border-slate-900 bg-yellow-200 p-5 shadow-[6px_6px_0_#020617]">
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-red-600">
+            Kracht trainer
+          </p>
+          <h1 className="mt-1 text-3xl font-black text-slate-950 sm:text-5xl">
+            Kies je route
+          </h1>
+          <p className="mt-2 max-w-xl text-sm font-black text-slate-700">
+            Bekijk de stap. Win daarna de battle.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {tasks.map((task, index) => (
+            <button
+              key={task.video}
+              type="button"
+              onClick={() => onSelect(index)}
+              className="rounded-lg border-4 border-slate-900 bg-white p-4 text-left text-slate-950 shadow-[4px_4px_0_#020617] transition hover:-translate-y-0.5 hover:bg-cyan-100"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="rounded-full border-2 border-slate-900 bg-red-500 px-3 py-1 text-xs font-black uppercase text-white">
+                  {chapterLabel(task)}
+                </span>
+                <Play size={18} className="text-red-500" />
+              </div>
+              <h2 className="text-lg font-black text-slate-950">{task.title}</h2>
+              <p className="mt-2 text-sm font-bold text-slate-700">
+                {task.skill}
+              </p>
+            </button>
+          ))}
+        </div>
+
+        <button className="primary-button" onClick={onStartExercise}>
+          Start arena battle
+        </button>
+      </section>
+    </main>
+  );
+}
+
+function LessonSlider({
+  tasks,
+  activeIndex,
+  onSelect,
+  onHome,
+}: {
+  tasks: PracticeTask[];
+  activeIndex: number;
+  onSelect: (index: number) => void;
+  onHome: () => void;
+}) {
+  const activeTask = tasks[activeIndex];
+
+  return (
+    <section className="sticky top-[65px] z-10 border-b-4 border-slate-900 bg-yellow-200 px-4 py-3">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <button className="secondary-button px-3 py-2 text-sm" onClick={onHome}>
+            Start
+          </button>
+          <div className="text-right">
+            <div className="text-xs font-black uppercase text-red-600">
+              {chapterLabel(activeTask)}
+            </div>
+            <div className="max-w-[220px] truncate text-sm font-black text-slate-950 sm:max-w-none">
+              {activeTask.title}
+            </div>
+          </div>
+        </div>
+        <input
+          aria-label="Kies stap"
+          type="range"
+          min={1}
+          max={tasks.length}
+          step={1}
+          value={activeIndex + 1}
+          onChange={(event) => onSelect(Number(event.target.value) - 1)}
+          className="w-full accent-red-500"
+        />
+        <div className="mt-1 grid grid-cols-7 text-center text-xs font-black text-slate-400">
+          {tasks.map((task, index) => (
+            <button
+              key={task.video}
+              type="button"
+              onClick={() => onSelect(index)}
+              className={index === activeIndex ? "text-red-600" : "text-slate-600"}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function QuizPrompt({ question, body }: { question: string; body: string }) {
   return (
-    <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
-      <div className="text-xs font-black uppercase tracking-wide text-cyan-200">
-        Overhoorvraag
+    <div className="rounded-lg border-4 border-slate-900 bg-yellow-100 p-4 text-slate-950">
+      <div className="text-xs font-black uppercase tracking-wide text-red-600">
+        Battle vraag
       </div>
-      <div className="mt-1 text-lg font-black text-white">{question}</div>
-      <p className="mt-2 text-sm font-semibold text-slate-300">{body}</p>
+      <div className="mt-1 text-lg font-black text-slate-950">{question}</div>
+      <p className="mt-2 text-sm font-bold text-slate-700">{body}</p>
     </div>
   );
 }
@@ -808,18 +1834,18 @@ function AnswerButton({
 }) {
   const stateClass =
     correct === true
-      ? "border-lime-300/60 bg-lime-300/15 text-lime-50"
+      ? "border-lime-600 bg-lime-100 text-slate-950"
       : correct === false
-        ? "border-red-300/60 bg-red-400/15 text-red-50"
+        ? "border-red-600 bg-red-100 text-slate-950"
         : active
-          ? "border-cyan-300/60 bg-cyan-300/15 text-white"
-          : "border-white/10 bg-slate-950/70 text-slate-200 hover:bg-white/10";
+          ? "border-cyan-600 bg-cyan-100 text-slate-950"
+          : "border-slate-900 bg-white text-slate-950 hover:bg-yellow-100";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-4 py-3 text-left text-sm font-bold transition ${stateClass}`}
+      className={`rounded-lg border-4 px-4 py-3 text-left text-sm font-black transition ${stateClass}`}
     >
       {children}
     </button>
@@ -836,19 +1862,19 @@ function FeedbackBox({
   children: React.ReactNode;
 }) {
   const styles = {
-    info: "border-cyan-300/30 bg-cyan-300/10 text-cyan-50",
-    hint: "border-amber-300/35 bg-amber-300/10 text-amber-50",
-    wrong: "border-red-300/35 bg-red-400/10 text-red-50",
-    right: "border-lime-300/35 bg-lime-300/10 text-lime-50",
+    info: "border-cyan-500 bg-cyan-100 text-slate-950",
+    hint: "border-yellow-500 bg-yellow-100 text-slate-950",
+    wrong: "border-red-600 bg-red-100 text-slate-950",
+    right: "border-lime-600 bg-lime-100 text-slate-950",
   }[tone];
 
   return (
-    <div className={`rounded-lg border p-4 ${styles}`}>
+    <div className={`rounded-lg border-4 p-4 ${styles}`}>
       <div className="mb-1 flex items-center gap-2 font-black">
         <Lightbulb size={17} />
         {title}
       </div>
-      <div className="text-sm font-semibold leading-relaxed text-slate-100">
+      <div className="text-sm font-bold leading-relaxed text-slate-800">
         {children}
       </div>
     </div>
@@ -857,18 +1883,32 @@ function FeedbackBox({
 
 function FormulaLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/70 p-3">
-      <div className="text-xs font-black uppercase text-slate-400">{label}</div>
-      <div className="mt-1 font-mono text-sm font-bold text-cyan-100">{value}</div>
+    <div className="rounded-lg border-2 border-slate-900 bg-white p-3">
+      <div className="text-xs font-black uppercase text-red-600">{label}</div>
+      <div className="mt-1 font-mono text-sm font-black text-slate-950">{value}</div>
     </div>
   );
 }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-slate-950/70 p-3 text-center">
-      <div className="text-xs font-black uppercase text-slate-400">{label}</div>
-      <div className="mt-1 text-lg font-black text-white">{value}</div>
+    <div className="rounded-lg border-4 border-slate-900 bg-white p-3 text-center text-slate-950 shadow-[4px_4px_0_#020617]">
+      <div className="text-xs font-black uppercase text-red-600">{label}</div>
+      <div className="mt-1 text-lg font-black text-slate-950">{value}</div>
+    </div>
+  );
+}
+
+function RouteMetrics({
+  activeTask,
+}: {
+  activeTask: PracticeTask;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <MiniMetric label="stap" value={activeTask.video.replace("Video ", "")} />
+      <MiniMetric label="doel" value={activeTask.skill} />
+      <MiniMetric label="regel" value={activeTask.method} />
     </div>
   );
 }
@@ -903,6 +1943,8 @@ function Confetti({ show }: { show: boolean }) {
 }
 
 function App() {
+  const [viewMode, setViewMode] = useState<ViewMode>("home");
+  const [activeTaskIndex, setActiveTaskIndex] = useState(0);
   const [step, setStep] = useState<Step>("intro");
   const [physics, setPhysics] = useState<PhysicsData>(INITIAL_PHYSICS);
   const [catVisible, setCatVisible] = useState(false);
@@ -913,6 +1955,7 @@ function App() {
   const [confetti, setConfetti] = useState(false);
 
   const armed = step === "reaction" && catVisible;
+  const activeTask = PRACTICE_TASKS[activeTaskIndex];
 
   useEffect(() => {
     if (step !== "reaction" || !reactionReady) return;
@@ -974,46 +2017,74 @@ function App() {
     setStep("reaction");
   };
 
+  const openLesson = (index: number) => {
+    setActiveTaskIndex(index);
+    setViewMode("lesson");
+    setCatVisible(false);
+    setCatAppearedAt(null);
+    setReactionReady(false);
+    setStep("intro");
+  };
+
+  const startExercise = () => {
+    setViewMode("lesson");
+    setStep("reaction");
+  };
+
+  if (viewMode === "home") {
+    return (
+      <div className="min-h-screen bg-cyan-200 font-display text-slate-950">
+        <Navbar step={step} xp={xp} streak={streak} />
+        <StartScreen
+          tasks={PRACTICE_TASKS}
+          onSelect={openLesson}
+          onStartExercise={startExercise}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 font-display text-slate-100">
+    <div className="min-h-screen bg-cyan-200 font-display text-slate-950">
       <Navbar step={step} xp={xp} streak={streak} />
       <Confetti show={confetti} />
+      <LessonSlider
+        tasks={PRACTICE_TASKS}
+        activeIndex={activeTaskIndex}
+        onSelect={setActiveTaskIndex}
+        onHome={() => setViewMode("home")}
+      />
 
       <main className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1.25fr)_430px]">
         <section className="space-y-4">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-200">
-              Kracht en beweging
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-red-600">
+              Trainer route
             </p>
-            <h1 className="mt-1 text-3xl font-black text-white sm:text-5xl">
-              De Noodstop
+            <h1 className="mt-1 text-3xl font-black text-slate-950 sm:text-5xl">
+              {activeTask.title}
             </h1>
           </div>
-          <SimulationCanvas step={step} physics={physics} catVisible={catVisible} />
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MiniMetric label="snelheid" value={`${physics.speedMs} m/s`} />
-            <MiniMetric label="reactietijd" value={reactionText} />
-            <MiniMetric label="kat" value={`${physics.catDistance} m`} />
-          </div>
+          <SimulationCanvas
+            step={step}
+            physics={physics}
+            catVisible={catVisible}
+            taskIndex={activeTaskIndex}
+            task={activeTask}
+          />
+          <RouteMetrics
+            activeTask={activeTask}
+          />
         </section>
 
         <aside className="space-y-4">
           <AnimatePresence mode="wait">
-            {step === "intro" && <IntroPanel key="intro" onStart={() => setStep("reaction")} />}
-            {step === "reaction" && (
-              <ReactionStep
-                key="reaction"
-                catVisible={catVisible}
-                armed={armed}
-                onBrake={handleBrake}
-                onReady={() => setReactionReady(true)}
-              />
-            )}
-            {step === "formula" && <FormulaStep key="formula" physics={physics} onCorrect={handleFormulaCorrect} />}
-            {step === "graph" && <GraphStep key="graph" physics={physics} onFinish={handleFinish} />}
-            {(step === "success" || step === "crash") && (
-              <ResultPanel key="result" success={step === "success"} physics={physics} onRetry={retry} />
-            )}
+            <RouteBattlePanel
+              key={activeTask.video}
+              task={activeTask}
+              canGoNext={activeTaskIndex < PRACTICE_TASKS.length - 1}
+              onNext={() => setActiveTaskIndex((current) => Math.min(current + 1, PRACTICE_TASKS.length - 1))}
+            />
           </AnimatePresence>
         </aside>
       </main>
